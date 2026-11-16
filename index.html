@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<!--
+	Patternfall: page for the Web build (preset "Web", html/custom_html_shell). Not a game resource.
+	Why not the engine default page: the game must stay inside the safe area of an iPhone (the engine reports
+	no notch or home-bar margins on the Web), open full screen from the Home Screen icon, show the studio logo
+	while loading, and hide three Web quirks of Godot 4.7.2 from the game (see the script below).
+	Checked in desktop Chromium only. Build: build_web.ps1. Notes: CLAUDE.md of the project.
+-->
+<html lang="en" style="background:#000">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+		<title>Patternfall</title>
+		<meta name="robots" content="noindex, nofollow">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+		<meta name="apple-mobile-web-app-title" content="Patternfall">
+		<meta name="application-name" content="Patternfall">
+		<meta name="theme-color" content="#000000">
+		<meta name="color-scheme" content="dark">
+		<meta name="format-detection" content="telephone=no">
+		<style>
+html, body {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	overflow: hidden;
+	background: #000;
+	color: #fff;
+	overscroll-behavior: none;
+	touch-action: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+	-webkit-tap-highlight-color: transparent;
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+/* The game lives inside the safe area: the engine reports no notch or home-bar margins on the Web. */
+#frame {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	top: env(safe-area-inset-top, 0px);
+	right: env(safe-area-inset-right, 0px);
+	bottom: env(safe-area-inset-bottom, 0px);
+	left: env(safe-area-inset-left, 0px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+#canvas {
+	display: block;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	outline: none;
+	background: #000;
+	touch-action: none;
+}
+
+#status {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 10;
+	background-color: #000000;
+	opacity: 1;
+	transition: opacity 0.25s ease-out;
+}
+
+#status.done {
+	opacity: 0;
+	pointer-events: none;
+}
+
+#status-splash {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	object-position: center;
+	pointer-events: none;
+	-webkit-user-drag: none;
+}
+
+#status-bar {
+	display: none;
+	position: absolute;
+	left: 50%;
+	bottom: 12%;
+	bottom: calc(12% + env(safe-area-inset-bottom, 0px));
+	width: 56%;
+	max-width: 300px;
+	height: 4px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, 0.14);
+	overflow: hidden;
+	transform: translateX(-50%);
+}
+
+#status-bar-fill {
+	width: 100%;
+	height: 100%;
+	border-radius: 2px;
+	background: linear-gradient(90deg, #FF812F, #48C96B);
+	-webkit-clip-path: inset(0 100% 0 0);
+	clip-path: inset(0 100% 0 0);
+	transform-origin: left center;
+}
+
+/* Size unknown, or everything is downloaded and the engine is starting: a running stripe. */
+#status-bar.busy #status-bar-fill {
+	-webkit-clip-path: none;
+	clip-path: none;
+	animation: status-busy 1.1s ease-in-out infinite;
+}
+
+@keyframes status-busy {
+	0% { transform: translateX(-40%) scaleX(0.4); }
+	100% { transform: translateX(100%) scaleX(0.4); }
+}
+
+#status-notice {
+	display: none;
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 84%;
+	max-width: 420px;
+	box-sizing: border-box;
+	padding: 20px 18px;
+	border: 1px solid #3a3a42;
+	border-radius: 14px;
+	background: #1b1b1f;
+	color: #f2f2f2;
+	font: 16px/1.4 -apple-system, system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+	text-align: center;
+	transform: translate(-50%, -50%);
+}
+
+#status-notice p {
+	margin: 0 0 10px;
+}
+
+#status-notice .en {
+	color: #b9b9c2;
+}
+
+#status-notice .tech {
+	font-size: 12px;
+	color: #8a8a94;
+	word-break: break-word;
+}
+
+/* A phone held sideways: the game is laid out upright and would be tiny. */
+#rotate {
+	display: none;
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 20;
+	align-items: center;
+	justify-content: center;
+	background: #000;
+	color: #f2f2f2;
+	font: 18px/1.4 -apple-system, system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+	text-align: center;
+}
+
+#rotate .en {
+	color: #b9b9c2;
+}
+
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+	#rotate {
+		display: flex;
+	}
+}
+
+/* Shown only when scripts are off: the logo above would otherwise stay forever without a word. */
+#noscript-note {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 12%;
+	z-index: 30;
+	padding: 0 16px;
+	color: #f2f2f2;
+	font: 16px/1.4 -apple-system, system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+	text-align: center;
+}
+
+#status-reload {
+	margin-top: 8px;
+	padding: 12px 22px;
+	border: 0;
+	border-radius: 10px;
+	background: #FF812F;
+	color: #000;
+	font: 600 16px/1.2 -apple-system, system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+	touch-action: manipulation;
+}
+		</style>
+		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+
+	</head>
+	<body>
+		<div id="frame">
+			<canvas id="canvas" tabindex="0">
+				Этому браузеру не хватает поддержки canvas. / Your browser does not support the canvas tag.
+			</canvas>
+		</div>
+
+		<noscript>
+			<div id="noscript-note">Для игры нужен JavaScript. / JavaScript is required to play.</div>
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" src="index.png" alt="">
+			<div id="status-bar"><div id="status-bar-fill"></div></div>
+			<div id="status-notice"></div>
+		</div>
+
+		<div id="rotate"><p>Поверните телефон вертикально<br><span class="en">Turn your phone upright</span></p></div>
+
+		<script src="index.js"></script>
+		<script>
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":0,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":900276,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_THREADS_ENABLED = false;
+
+(function () {
+	// Wider windows than this (width / height) show the game as a centred portrait column: the game is
+	// laid out for phones and tablets held upright. 0 turns the limit off.
+	const MAX_ASPECT = 0.75;
+	const MAX_PIXEL_RATIO = 3;
+
+	const TEXT = {
+		'load': [
+			'Не удалось загрузить игру. Проверьте интернет и нажмите «Обновить».',
+			'Could not load the game. Check your connection and tap Reload.',
+		],
+		'webgl': [
+			'Этот браузер не умеет WebGL 2. Обновите систему телефона или откройте игру в Safari или Chrome.',
+			'This browser does not support WebGL 2. Update your system or open the game in Safari or Chrome.',
+		],
+		'secure': [
+			'Игра открыта по адресу http. Ей нужен защищённый адрес, который начинается с https://.',
+			'The game was opened over plain http. It needs a secure address that starts with https://.',
+		],
+		'old': [
+			'Этот браузер слишком старый для игры. На iPhone и iPad нужна iOS 16.4 или новее.',
+			'This browser is too old for the game. On iPhone and iPad it needs iOS 16.4 or newer.',
+		],
+		'lost': [
+			'Картинка остановилась: система забрала у страницы память. Нажмите «Обновить».',
+			'The picture stopped because the system reclaimed memory from the page. Tap Reload.',
+		],
+		'start': [
+			'Игра не запустилась. Нажмите «Обновить». Если не поможет, пришлите разработчику текст ниже.',
+			'The game failed to start. Tap Reload. If that does not help, send the text below to the developer.',
+		],
+		'reload': 'Обновить / Reload',
+	};
+
+	const canvas = document.getElementById('canvas');
+	const frame = document.getElementById('frame');
+	const statusOverlay = document.getElementById('status');
+	const statusSplash = document.getElementById('status-splash');
+	const statusBar = document.getElementById('status-bar');
+	const statusFill = document.getElementById('status-bar-fill');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let failed = false;
+
+	// ---- Canvas size: the safe area of the screen, in real pixels.
+	let cssW = 0;
+	let cssH = 0;
+	function fit() {
+		const rect = frame.getBoundingClientRect();
+		let w = Math.floor(rect.width);
+		const h = Math.floor(rect.height);
+		if (w < 1 || h < 1) {
+			return;
+		}
+		if (MAX_ASPECT > 0 && w > h * MAX_ASPECT) {
+			w = Math.floor(h * MAX_ASPECT);
+		}
+		const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+		const pw = Math.max(1, Math.round(w * ratio));
+		const ph = Math.max(1, Math.round(h * ratio));
+		if (w !== cssW || h !== cssH) {
+			cssW = w;
+			cssH = h;
+			canvas.style.width = `${w}px`;
+			canvas.style.height = `${h}px`;
+		}
+		// Writing the same number again would still clear the picture, so compare first.
+		if (canvas.width !== pw) {
+			canvas.width = pw;
+		}
+		if (canvas.height !== ph) {
+			canvas.height = ph;
+		}
+	}
+	fit();
+	window.addEventListener('resize', fit);
+	window.addEventListener('orientationchange', fit);
+	window.addEventListener('pageshow', fit);
+	document.addEventListener('visibilitychange', fit);
+	if (window.visualViewport) {
+		window.visualViewport.addEventListener('resize', fit);
+	}
+	// iOS does not always report a changed safe area or a settled size after launch from the Home Screen.
+	setInterval(fit, 500);
+
+	// ---- No page zoom, text selection, rubber-band scrolling or long-press menu.
+	// Touches on the canvas are taken by the engine; these cover the bars around it.
+	const block = function (ev) {
+		if (ev.cancelable) {
+			ev.preventDefault();
+		}
+	};
+	document.addEventListener('touchmove', block, { passive: false });
+	['gesturestart', 'gesturechange', 'gestureend', 'dblclick', 'contextmenu', 'selectstart', 'dragstart'].forEach(function (name) {
+		document.addEventListener(name, block, { passive: false });
+	});
+
+	// ---- Three Web quirks of Godot 4.7.2 the page hides from the game.
+	// 1. The engine listens to pointermove on the window and does not look at the pointer type, so on a phone
+	// every finger move reaches it twice: as a touch and as a real mouse. Scrolling lists (settings, shop) run
+	// at double speed or do not start at all (engine issue 116465). Fingers are left to the touch events.
+	if ('ontouchstart' in window) {
+		window.addEventListener('pointermove', function (ev) {
+			if (ev.pointerType === 'touch') {
+				ev.stopImmediatePropagation();
+			}
+		}, true);
+	}
+
+	// 2. A touch the system took away (Home gesture from the edge, a call) reaches the engine as a normal
+	// release, and the game would put the dragged piece on the board. Such touches are remembered here by
+	// number; the game asks godotTouchCanceled(index) on every release (scripts/ui/ui.gd, UI.touch_canceled).
+	const canceledTouches = [];
+	let cancelNow = false;
+	canvas.addEventListener('touchcancel', function (ev) {
+		cancelNow = true;
+		for (let i = 0; i < ev.changedTouches.length; i++) {
+			canceledTouches.push(ev.changedTouches[i].identifier | 0);
+		}
+		while (canceledTouches.length > 16) {
+			canceledTouches.shift();
+		}
+	}, true);
+	canvas.addEventListener('touchstart', function (ev) {
+		cancelNow = false;
+		// A new touch may get an old number again (Chrome numbers touches 0, 1, 2).
+		for (let i = 0; i < ev.changedTouches.length; i++) {
+			const at = canceledTouches.indexOf(ev.changedTouches[i].identifier | 0);
+			if (at >= 0) {
+				canceledTouches.splice(at, 1);
+			}
+		}
+	}, true);
+	window.godotTouchCanceled = function (index) {
+		return canceledTouches.indexOf(index | 0) >= 0;
+	};
+	// Ordinary buttons get the release as a mouse click made from the touch, and a mouse has no touch number.
+	// The engine hands both releases to the game at once, inside its own touchcancel listener on the canvas;
+	// this flag is up exactly for that time (the window listener below runs after the engine's), and the game
+	// marks both releases as canceled (scripts/main.gd, AppShell._input).
+	window.addEventListener('touchcancel', function () {
+		cancelNow = false;
+	}, false);
+	window.godotTouchCanceling = function () {
+		return cancelNow;
+	};
+
+	// 3. A lost picture (see webglcontextlost below): the engine answers with a blocking English alert.
+
+	// Keep the save when the browser cleans up site data (best effort, the browser may refuse).
+	if (navigator.storage && typeof navigator.storage.persist === 'function') {
+		navigator.storage.persist().catch(function () { /* nothing to do */ });
+	}
+
+	// ---- Loading screen.
+	let lastCurrent = -1;
+	let lastProgress = Date.now();
+	let downloading = true;
+	function showBar(current, total) {
+		if (!initializing || failed) {
+			return;
+		}
+		if (current !== lastCurrent) {
+			lastCurrent = current;
+			lastProgress = Date.now();
+		}
+		downloading = !(total > 0 && current >= total);
+		statusBar.style.display = 'block';
+		if (current > 0 && total > 0 && current < total) {
+			const hidden = Math.max(0, 100 - (current / total) * 100).toFixed(1);
+			statusBar.classList.remove('busy');
+			statusFill.style.webkitClipPath = `inset(0 ${hidden}% 0 0)`;
+			statusFill.style.clipPath = `inset(0 ${hidden}% 0 0)`;
+		} else {
+			statusFill.style.webkitClipPath = '';
+			statusFill.style.clipPath = '';
+			statusBar.classList.add('busy');
+		}
+	}
+
+	function hideStatus() {
+		if (!initializing || failed) {
+			return;
+		}
+		initializing = false;
+		statusOverlay.classList.add('done');
+		setTimeout(function () {
+			if (!failed) {
+				statusOverlay.remove();
+			}
+		}, 300);
+	}
+
+	function showNotice(kind, detail) {
+		failed = true;
+		initializing = false;
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = TEXT[kind] || TEXT['start'];
+		const ru = document.createElement('p');
+		ru.textContent = lines[0];
+		const en = document.createElement('p');
+		en.className = 'en';
+		en.textContent = lines[1];
+		statusNotice.appendChild(ru);
+		statusNotice.appendChild(en);
+		if (detail) {
+			const tech = document.createElement('p');
+			tech.className = 'tech';
+			tech.textContent = detail;
+			statusNotice.appendChild(tech);
+		}
+		if (kind !== 'secure' && kind !== 'webgl' && kind !== 'old') {
+			const button = document.createElement('button');
+			button.id = 'status-reload';
+			button.type = 'button';
+			button.textContent = TEXT['reload'];
+			button.addEventListener('click', function () {
+				window.location.reload();
+			});
+			statusNotice.appendChild(button);
+		}
+		statusSplash.style.display = 'none';
+		statusBar.style.display = 'none';
+		statusNotice.style.display = 'block';
+		statusOverlay.classList.remove('done');
+		if (!statusOverlay.isConnected) {
+			document.body.appendChild(statusOverlay);
+		}
+	}
+
+	function displayFailure(err) {
+		console.error(err);
+		let detail = '';
+		if (err instanceof Error) {
+			detail = err.message;
+		} else if (typeof err === 'string') {
+			detail = err;
+		}
+		const network = navigator.onLine === false || /Failed loading file|Load failed|Failed to fetch|NetworkError|network error|network connection/i.test(detail);
+		showNotice(network ? 'load' : 'start', detail);
+	}
+
+	// The engine answers a lost picture with a blocking English alert; say it in plain words instead.
+	// Registered before the engine starts, so this listener runs first.
+	canvas.addEventListener('webglcontextlost', function (ev) {
+		ev.preventDefault();
+		ev.stopImmediatePropagation();
+		showNotice('lost', '');
+	}, true);
+
+	// ---- Start.
+	if (typeof Engine === 'undefined') {
+		// The engine script itself did not arrive.
+		showNotice('load', 'index.js');
+		return;
+	}
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+	if (missing.length !== 0) {
+		const all = missing.join('\n');
+		let kind = 'old';
+		if (/^WebGL2/m.test(all)) {
+			kind = 'webgl';
+		} else if (/^Secure Context/m.test(all)) {
+			kind = 'secure';
+		}
+		showNotice(kind, all);
+		return;
+	}
+
+	// The page sizes the canvas itself (see fit above), the engine only reads the size.
+	// The engine is built with WebAssembly SIMD (Safari has it since iOS 16.4). Without it the whole download
+	// would end in a failure nobody reports, so check before loading anything.
+	let simd = false;
+	try {
+		simd = typeof WebAssembly === 'object' && WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]));
+	} catch (e) {
+		simd = false;
+	}
+	if (!simd) {
+		showNotice('old', 'WebAssembly SIMD');
+		return;
+	}
+
+	// The engine does not report every failed download or a broken engine file: its promise never settles and
+	// the logo would stay forever. While loading, an unhandled failure on the page is a failed start.
+	window.addEventListener('unhandledrejection', function (ev) {
+		if (initializing && !failed) {
+			displayFailure(ev.reason);
+		}
+	});
+	// And a connection that just went silent in the middle of the download: no data for half a minute.
+	// Only while downloading (building the engine on an old phone may take long) and only while the page is seen.
+	const stallTimer = setInterval(function () {
+		if (!initializing || failed) {
+			clearInterval(stallTimer);
+			return;
+		}
+		if (document.hidden) {
+			lastProgress = Date.now();
+			return;
+		}
+		if (downloading && Date.now() - lastProgress > 30000) {
+			clearInterval(stallTimer);
+			showNotice('load', '');
+		}
+	}, 2000);
+
+	GODOT_CONFIG['canvasResizePolicy'] = 0;
+	const engine = new Engine(GODOT_CONFIG);
+	showBar(0, 0);
+	engine.startGame({
+		'onProgress': showBar,
+	}).then(hideStatus, displayFailure);
+}());
+		</script>
+	</body>
+</html>
+
